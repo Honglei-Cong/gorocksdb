@@ -1,0 +1,3 @@
+
+CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy -llz4" go run main.go
+
