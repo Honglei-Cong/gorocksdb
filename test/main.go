@@ -3,10 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
-	"time"
 
-	"github.com/tecbot/gorocksdb/test/rocksdb_test"
 	"github.com/tecbot/gorocksdb/test/leveldb_test"
+	"github.com/tecbot/gorocksdb/test/rocksdb_test"
 )
 
 func TestCheckpoint(dbpath1, dbpath2 string) {
@@ -73,7 +72,7 @@ func TestCheckpoint(dbpath1, dbpath2 string) {
 func main() {
 
 	if len(os.Args) < 2 {
-		fmt.Println("test checkpoint | rocksdbPut | leveldbPut")
+		fmt.Println("test checkpoint | rocksdbPut | leveldbPut | rocksdbGet | leveldbGet")
 		return
 	}
 
@@ -83,15 +82,30 @@ func main() {
 
 	case "rocksdbPut":
 		keycount := 1000
-		startT := time.Now()
-		RocksDB_Test.RockesDBPutBenchmark("test_rocksdb1", keycount)
-		fmt.Printf("rockies put test: count: %d, time: %v \n", keycount, time.Since(startT))
+		if err := RocksDB_Test.RocksDBPutBenchmark("test_rocksdb1", keycount); err != nil {
+			fmt.Printf("rocksdbPut test failed: %s \n", err)
+		}
 
 	case "leveldbPut":
 		keycount := 1000
-		startT := time.Now()
-		LevelDB_Test.LevelDBPutBenchmark("test_leveldb1", keycount)
-		fmt.Printf("leveldb put test: count: %d, time: %v \n", keycount, time.Since(startT))
+		if err := LevelDB_Test.LevelDBPutBenchmark("test_leveldb1", keycount); err != nil {
+			fmt.Printf("leveldbPut test failed: %s \n", err)
+		}
+
+	case "rocksdbGet":
+		keycount := 1000
+		if err := RocksDB_Test.RocksDBGetBenchmark("test_rocksdb1", keycount); err != nil {
+			fmt.Printf("rocksdbGet test failed: %s \n", err)
+		}
+
+	case "leveldbGet":
+		keycount := 1000
+		if err := LevelDB_Test.LevelDBGetBenchmark("test_leveldb1", keycount); err != nil {
+			fmt.Printf("leveldbGet test failed: %s \n", err)
+		}
+
+	case "rocksdbOverwrite":
+	case "leveldbOverwrite":
 
 	default:
 		fmt.Printf("unknown operation: %s", os.Args[1])
