@@ -1,140 +1,21 @@
-
 package main
 
 import (
-	"github.com/tecbot/gorocksdb"
-	"os"
-	"path"
 	"fmt"
+	"os"
 	"time"
+
+	"github.com/tecbot/gorocksdb/test/rocksdb_test"
+	"github.com/tecbot/gorocksdb/test/leveldb_test"
 )
 
-type TestRocksDB struct {
-	DB *gorocksdb.DB
-	cfhandle *gorocksdb.ColumnFamilyHandle
-}
-
-func (self *TestRocksDB) Open(dbPath string) error {
-
-	err := os.MkdirAll(path.Dir(dbPath), 0755)
-	if err != nil {
-		panic(fmt.Sprintf("failed to making dir [%s]: %s", dbPath, err))
-	}
-
-	opts := gorocksdb.NewDefaultOptions()
-	defer opts.Destroy()
-
-	opts.SetCreateIfMissing(true)
-	opts.SetCreateIfMissingColumnFamilies(true)
-
-	cfName := []string{"default"}
-	var cfOpts []*gorocksdb.Options
-	for range cfName {
-		cfOpts = append(cfOpts, opts)
-	}
-
-	db, cfHandlers, err := gorocksdb.OpenDbColumnFamilies(opts, dbPath, cfName, cfOpts)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to open db: %s", err))
-	}
-
-	self.DB = db
-	self.cfhandle = cfHandlers[0]
-	return nil
-}
-
-func (self *TestRocksDB) close() {
-	self.cfhandle.Destroy()
-	self.DB.Close()
-}
-
-func (self *TestRocksDB) Get(key []byte) ([]byte, error) {
-	opt := gorocksdb.NewDefaultReadOptions()
-	defer opt.Destroy()
-
-	slice, err := self.DB.GetCF(opt, self.cfhandle, key)
-	if err != nil {
-		return nil, err
-	}
-	defer slice.Free()
-	if slice.Data() == nil {
-		return nil, nil
-	}
-
-	data := makeCopy(slice.Data())
-	return data, nil
-}
-
-func (self *TestRocksDB) Put(key, value []byte) error {
-	opt := gorocksdb.NewDefaultWriteOptions()
-	defer opt.Destroy()
-
-	opt.DisableWAL(true)
-	return self.DB.PutCF(opt, self.cfhandle, key, value)
-}
-
-func (self *TestRocksDB) Del(key []byte) error {
-	opt := gorocksdb.NewDefaultWriteOptions()
-	defer opt.Destroy()
-
-	opt.DisableWAL(true)
-	return self.DB.DeleteCF(opt, self.cfhandle, key)
-}
-
-func (self *TestRocksDB) CreateCheckpoint(ckptPath string) error {
-	if existed, err := dirExists(ckptPath); err != nil {
-		return err
-	} else if existed {
-		return fmt.Errorf("Checkpoint path %s existed", ckptPath)
-	}
-
-	ckpt, err := self.DB.NewCheckpoint()
-	if err != nil {
-		return err
-	}
-	defer ckpt.Destroy()
-
-	return ckpt.CreateCheckpoint(ckptPath, 0)
-}
-
-func (self *TestRocksDB) DelCheckpoint(ckptPath string) error {
-	if existed, err := dirExists(ckptPath); err != nil {
-		return err
-	} else if !existed {
-		return nil
-	}
-
-	// remove the directory
-	return os.RemoveAll(ckptPath)
-}
-
-func dirExists(path string) (bool, error) {
-	_, err := os.Stat(path)
-	if err == nil {
-		return true, nil
-	}
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return false, err
-}
-
-func makeCopy(src []byte) []byte {
-	dest := make([]byte, len(src))
-	copy(dest, src)
-	return dest
-}
-
-func TestCheckpoint() {
-	dbpath1 := "./test-db"
-	dbpath2 := "./test-db2"
-
-	db := &TestRocksDB{}
+func TestCheckpoint(dbpath1, dbpath2 string) {
+	db := &RocksDB_Test.MyRocksDB{}
 	if err := db.Open(dbpath1); err != nil {
 		fmt.Printf("Failed to opendb %s: %s \n", dbpath1, err)
 		return
 	}
-	defer db.close()
+	defer db.Close()
 
 	key := []byte("key1")
 	value := []byte("value1")
@@ -174,11 +55,11 @@ func TestCheckpoint() {
 	}
 
 	// open db2
-	db2 := &TestRocksDB{}
+	db2 := &RocksDB_Test.MyRocksDB{}
 	if err := db2.Open(dbpath2); err != nil {
 		fmt.Printf("Failed to open db %s: %s", dbpath2, err)
 	}
-	defer db2.close()
+	defer db2.Close()
 
 	// get value from db2
 	if v, err := db2.Get(key); err != nil {
@@ -190,11 +71,29 @@ func TestCheckpoint() {
 }
 
 func main() {
-	// TestCheckpoint()
 
-	keycount := 1000000
-	startT := time.Now()
-	RockesDBPutBenchmark("test_db1", keycount)
-	fmt.Printf("put test: count: %d, time: %v \n", keycount, time.Since(startT))
+	if len(os.Args) < 2 {
+		fmt.Println("test checkpoint | rocksdbPut | leveldbPut")
+		return
+	}
 
+	switch os.Args[1] {
+	case "checkpoint":
+		TestCheckpoint("./test-db", "./test-db2")
+
+	case "rocksdbPut":
+		keycount := 1000
+		startT := time.Now()
+		RocksDB_Test.RockesDBPutBenchmark("test_rocksdb1", keycount)
+		fmt.Printf("rockies put test: count: %d, time: %v \n", keycount, time.Since(startT))
+
+	case "leveldbPut":
+		keycount := 1000
+		startT := time.Now()
+		LevelDB_Test.LevelDBPutBenchmark("test_leveldb1", keycount)
+		fmt.Printf("leveldb put test: count: %d, time: %v \n", keycount, time.Since(startT))
+
+	default:
+		fmt.Printf("unknown operation: %s", os.Args[1])
+	}
 }

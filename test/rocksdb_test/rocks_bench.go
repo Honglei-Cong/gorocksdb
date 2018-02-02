@@ -1,19 +1,20 @@
-package main
+package RocksDB_Test
 
 import (
 	"fmt"
-	"math/rand"
+
+	"github.com/tecbot/gorocksdb/test/utils"
 )
 
 func RockesDBPutBenchmark(dbPath string, nrecord int) error {
-	db := &TestRocksDB{}
+	db := &MyRocksDB{}
 	if err := db.Open(dbPath); err != nil {
 		return fmt.Errorf("Failed to opendb %s: %s \n", dbPath, err)
 	}
-	defer db.close()
+	defer db.Close()
 
-	keyPrefix := string(GetRandomBytes(60))
-	value := GetRandomBytes(256)
+	keyPrefix := string(utils.GetRandomBytes(60))
+	value := utils.GetRandomBytes(256)
 	for i := 0; i < nrecord; i++ {
 		key := []byte(fmt.Sprintf("%s%d", keyPrefix, i))
 
@@ -24,13 +25,3 @@ func RockesDBPutBenchmark(dbPath string, nrecord int) error {
 	}
 	return nil
 }
-
-func GetRandomBytes(n int) []byte {
-	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = letterBytes[rand.Intn(len(letterBytes))]
-	}
-	return b
-}
-
