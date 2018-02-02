@@ -192,8 +192,9 @@ func TestCheckpoint() {
 func main() {
 	// TestCheckpoint()
 
+	keycount := 1000000
 	startT := time.Now()
-	RockesDBPutBenchmark("test_db1", 1000)
-	fmt.Printf("time: %v \n", time.Since(startT))
+	RockesDBPutBenchmark("test_db1", keycount)
+	fmt.Printf("put test: count: %d, time: %v \n", keycount, time.Since(startT))
 
 }
