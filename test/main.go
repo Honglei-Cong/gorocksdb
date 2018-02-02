@@ -6,14 +6,15 @@ import (
 	"os"
 	"path"
 	"fmt"
+	"time"
 )
 
-type TestDB struct {
+type TestRocksDB struct {
 	DB *gorocksdb.DB
 	cfhandle *gorocksdb.ColumnFamilyHandle
 }
 
-func (self *TestDB) Open(dbPath string) error {
+func (self *TestRocksDB) Open(dbPath string) error {
 
 	err := os.MkdirAll(path.Dir(dbPath), 0755)
 	if err != nil {
@@ -42,12 +43,12 @@ func (self *TestDB) Open(dbPath string) error {
 	return nil
 }
 
-func (self *TestDB) close() {
+func (self *TestRocksDB) close() {
 	self.cfhandle.Destroy()
 	self.DB.Close()
 }
 
-func (self *TestDB) Get(key []byte) ([]byte, error) {
+func (self *TestRocksDB) Get(key []byte) ([]byte, error) {
 	opt := gorocksdb.NewDefaultReadOptions()
 	defer opt.Destroy()
 
@@ -64,21 +65,23 @@ func (self *TestDB) Get(key []byte) ([]byte, error) {
 	return data, nil
 }
 
-func (self *TestDB) Put(key, value []byte) error {
+func (self *TestRocksDB) Put(key, value []byte) error {
 	opt := gorocksdb.NewDefaultWriteOptions()
 	defer opt.Destroy()
 
+	opt.DisableWAL(true)
 	return self.DB.PutCF(opt, self.cfhandle, key, value)
 }
 
-func (self *TestDB) Del(key []byte) error {
+func (self *TestRocksDB) Del(key []byte) error {
 	opt := gorocksdb.NewDefaultWriteOptions()
 	defer opt.Destroy()
 
+	opt.DisableWAL(true)
 	return self.DB.DeleteCF(opt, self.cfhandle, key)
 }
 
-func (self *TestDB) CreateCheckpoint(ckptPath string) error {
+func (self *TestRocksDB) CreateCheckpoint(ckptPath string) error {
 	if existed, err := dirExists(ckptPath); err != nil {
 		return err
 	} else if existed {
@@ -94,7 +97,7 @@ func (self *TestDB) CreateCheckpoint(ckptPath string) error {
 	return ckpt.CreateCheckpoint(ckptPath, 0)
 }
 
-func (self *TestDB) DelCheckpoint(ckptPath string) error {
+func (self *TestRocksDB) DelCheckpoint(ckptPath string) error {
 	if existed, err := dirExists(ckptPath); err != nil {
 		return err
 	} else if !existed {
@@ -122,11 +125,11 @@ func makeCopy(src []byte) []byte {
 	return dest
 }
 
-func main() {
+func TestCheckpoint() {
 	dbpath1 := "./test-db"
 	dbpath2 := "./test-db2"
 
-	db := &TestDB{}
+	db := &TestRocksDB{}
 	if err := db.Open(dbpath1); err != nil {
 		fmt.Printf("Failed to opendb %s: %s \n", dbpath1, err)
 		return
@@ -171,7 +174,7 @@ func main() {
 	}
 
 	// open db2
-	db2 := &TestDB{}
+	db2 := &TestRocksDB{}
 	if err := db2.Open(dbpath2); err != nil {
 		fmt.Printf("Failed to open db %s: %s", dbpath2, err)
 	}
@@ -184,4 +187,13 @@ func main() {
 	} else {
 		fmt.Printf("got value: %s \n", string(v))
 	}
+}
+
+func main() {
+	// TestCheckpoint()
+
+	startT := time.Now()
+	RockesDBPutBenchmark("test_db1", 1000)
+	fmt.Printf("time: %v \n", time.Since(startT))
+
 }
